@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ===================== AUTH =====================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ===================== USERS =====================
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(USER)
+
+  accounts    Account[]
+  sessions    Session[]
+  favorites   Favorite[]
+  comparisons Comparison[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum UserRole {
+  USER
+  MANAGER
+  ADMIN
+}
+
+// ===================== TOURS =====================
+
+model Tour {
+  id            String        @id @default(cuid())
+  title         String
+  slug          String        @unique
+  description   String        @db.Text
+  destination   String
+  country       String
+  departureCity String
+  price         Float
+  currency      String        @default("RUB")
+  duration      Int
+  hotelName     String
+  hotelStars    Int
+  mealType      MealType
+  transport     TransportType
+  operator      String
+  imageUrl      String?
+  images        String[]
+  departureDate DateTime
+  returnDate    DateTime
+  included      String[]
+  excluded      String[]
+
+  analysis        TourAnalysis?
+  favorites       Favorite[]
+  comparisonItems ComparisonItem[]
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum MealType {
+  RO
+  BB
+  HB
+  FB
+  AI
+  UAI
+}
+
+enum TransportType {
+  FLIGHT
+  BUS
+  TRAIN
+  SELF
+}
+
+// ===================== AI ANALYSIS =====================
+
+model TourAnalysis {
+  id     String @id @default(cuid())
+  tourId String @unique
+  tour   Tour   @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  overallScore    Float
+  priceValue      Float
+  hotelQuality    Float
+  locationScore   Float
+  safetyIndex     Float
+  climateMatch    Float
+  transportScore  Float
+  mealScore       Float
+  activitiesScore Float
+
+  summary        String   @db.Text
+  pros           String[]
+  cons           String[]
+  recommendation String   @db.Text
+  detailedReview String   @db.Text
+
+  analyzedAt DateTime @default(now())
+}
+
+// ===================== FAVORITES =====================
+
+model Favorite {
+  id     String @id @default(cuid())
+  userId String
+  tourId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tour Tour @relation(fields: [tourId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tourId])
+}
+
+// ===================== COMPARISON =====================
+
+model Comparison {
+  id     String @id @default(cuid())
+  userId String
+  title  String?
+
+  user  User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items ComparisonItem[]
+
+  createdAt DateTime @default(now())
+}
+
+model ComparisonItem {
+  id           String @id @default(cuid())
+  comparisonId String
+  tourId       String
+  order        Int    @default(0)
+
+  comparison Comparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  tour       Tour       @relation(fields: [tourId], references: [id], onDelete: Cascade)
+}
